@@ -43,3 +43,6 @@ next-env.d.ts
 Frontend/.codegpt
 Backend/.codegpt
 .aider*
+__pycache__/
+*.py[cod]
+*$py.class
