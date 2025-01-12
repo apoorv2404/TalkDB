@@ -30,9 +30,10 @@ def get_tables(database_name: str):
                 SELECT 
                     table_name,
                     obj_description((quote_ident(table_schema) || '.' || 
-                                   quote_ident(table_name))::regclass, 'pg_class') as description
+                    quote_ident(table_name))::regclass, 'pg_class') as description
                 FROM information_schema.tables 
-                WHERE table_schema = 'public'
+                WHERE table_schema = 'public' 
+                AND table_type = 'BASE TABLE'
             """)
             tables = []
             for table_name, description in cur.fetchall():

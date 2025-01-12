@@ -9,7 +9,6 @@ from app.utils.db_url_util import get_db_connection_params
 def retrieve_relevant_schema(user_query: str, milvus_collection_name: str = "db_schema") -> Optional[List[str]]:
     """Retrieve relevant schema context for a user query using embeddings stored in Milvus."""
     try:
-        print("retrieving relevant schema")
         connections.connect(
             "default", 
             host=settings.MILVUS_HOST, 
@@ -113,7 +112,6 @@ def process_natural_language_query(query: str, database: str) -> Dict[str, Any]:
         if not schema_context:
             raise Exception("Could not find relevant schema information")
 
-        print("Generating Sql Query")
         # Step 2: Generate SQL query
         sql_query = generate_sql_query(schema_context, query)
         if not sql_query:

@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from app.db.session import get_databases, get_tables
 from app.utils.query_processing import process_natural_language_query, ingest_schema
+from app.models.context import DatabaseContext, TableContext, ColumnContext, ContextResponse
+from app.db.context_store import context_store
 from typing import List, Dict, Any
 from pydantic import BaseModel
 
@@ -99,3 +101,171 @@ async def ingest_database_schema(database: str):
         return {"message": f"Successfully ingested schema for {count} tables"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  # Raise an exception if an error occurs
+
+
+@router.get("/database/{db_name}/context")
+async def get_database_context(
+    db_name: str,
+    include_tables: bool = False,
+    include_columns: bool = False
+) -> ContextResponse:
+    """
+    Retrieve context for a database.
+    
+    Args:
+        db_name: Database name
+        include_tables: If True, includes context for all tables
+        include_columns: If True, includes context for all columns
+    """
+    try:
+        context = await context_store.retrieve_context(
+            entity_type="database",
+            entity_name=db_name,
+            include_children=include_tables or include_columns
+        )
+        return context
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/database/{db_name}/context")
+async def update_database_context(
+    db_name: str,
+    context: DatabaseContext
+) -> ContextResponse:
+    """
+    Update or create context for a database.
+    
+    Args:
+        db_name: Database name
+        context: Database context information
+    """
+    try:
+        updated_context = await context_store.store_context(
+            entity_type="database",
+            entity_name=db_name,
+            context_data=context.dict()
+        )
+        return updated_context
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/database/{db_name}/table/{table_name}/context")
+async def get_table_context(
+    db_name: str,
+    table_name: str,
+    include_columns: bool = False
+) -> ContextResponse:
+    """
+    Retrieve context for a specific table.
+    
+    Args:
+        db_name: Database name
+        table_name: Table name
+        include_columns: If True, includes context for all columns
+    """
+    try:
+        context = await context_store.retrieve_context(
+            entity_type="table",
+            entity_name=f"{db_name}.{table_name}",
+            include_children=include_columns
+        )
+        return context
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/database/{db_name}/table/{table_name}/context")
+async def update_table_context(
+    db_name: str,
+    table_name: str,
+    context: TableContext
+) -> ContextResponse:
+    """
+    Update or create context for a table.
+    
+    Args:
+        db_name: Database name
+        table_name: Table name
+        context: Table context information
+    """
+    try:
+        updated_context = await context_store.store_context(
+            entity_type="table",
+            entity_name=f"{db_name}.{table_name}",
+            context_data=context.dict()
+        )
+        return updated_context
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/database/{db_name}/table/{table_name}/column/{column_name}/context")
+async def get_column_context(
+    db_name: str,
+    table_name: str,
+    column_name: str
+) -> ContextResponse:
+    """
+    Retrieve context for a specific column.
+    
+    Args:
+        db_name: Database name
+        table_name: Table name
+        column_name: Column name
+    """
+    try:
+        context = await context_store.retrieve_context(
+            entity_type="column",
+            entity_name=f"{db_name}.{table_name}.{column_name}"
+        )
+        return context
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/database/{db_name}/table/{table_name}/column/{column_name}/context")
+async def update_column_context(
+    db_name: str,
+    table_name: str,
+    column_name: str,
+    context: ColumnContext
+) -> ContextResponse:
+    """
+    Update or create context for a column.
+    
+    Args:
+        db_name: Database name
+        table_name: Table name
+        column_name: Column name
+        context: Column context information
+    """
+    try:
+        updated_context = await context_store.store_context(
+            entity_type="column",
+            entity_name=f"{db_name}.{table_name}.{column_name}",
+            context_data=context.dict()
+        )
+        return updated_context
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Optional: Bulk operations for efficiency
+
+@router.put("/database/{db_name}/bulk-context")
+async def update_bulk_context(
+    db_name: str,
+    context: DatabaseContext,
+    include_tables: bool = True,
+    include_columns: bool = True
+) -> ContextResponse:
+    """
+    Bulk update context for database, its tables, and columns.
+    
+    Args:
+        db_name: Database name
+        context: Complete context hierarchy
+        include_tables: If True, updates table contexts
+        include_columns: If True, updates column contexts
+    """
+    try:
+        # Implement bulk update logic
+        pass
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
