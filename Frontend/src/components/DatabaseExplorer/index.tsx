@@ -77,27 +77,38 @@ const DatabaseExplorer = () => {
   const MainContent = () => {
     const { getContext } = useContextProvider();
     const [dbContext, setDbContext] = useState<any>(null);
-    const [loadedDb, setLoadedDb] = useState<string | null>(null);
+    const [isLoadingDbContext, setIsLoadingDbContext] = useState(false);
   
     useEffect(() => {
       const loadDatabaseContext = async () => {
-        if (selectedDB && selectedDB.name !== loadedDb) {
-          try {
-            const context = await getContext('database', {
-              dbName: selectedDB.name
-            });
-            setDbContext(context);
-            setLoadedDb(selectedDB.name);
-          } catch (error) {
-            console.error('Failed to fetch database context:', error);
-            setDbContext(null);
-            setLoadedDb(selectedDB.name);
-          }
+        if (!selectedDB || isLoadingDbContext) return;
+        
+        setIsLoadingDbContext(true);
+        try {
+          const context = await getContext('database', {
+            dbName: selectedDB.name
+          });
+          setDbContext(context);
+        } catch (error) {
+          console.error('Failed to fetch database context:', error);
+          setDbContext(null);
+        } finally {
+          setIsLoadingDbContext(false);
         }
       };
-  
-      loadDatabaseContext();
-    }, [selectedDB, loadedDb, getContext]);
+
+      // Reset context when database changes
+      if (!selectedDB) {
+        setDbContext(null);
+      } else {
+        loadDatabaseContext();
+      }
+
+      // Cleanup function
+      return () => {
+        setIsLoadingDbContext(false);
+      };
+    }, [selectedDB?.name, getContext]);
   
     return (
       <div className="flex-1 p-6 overflow-auto">
@@ -142,15 +153,17 @@ const DatabaseExplorer = () => {
                       <h2 className="text-2xl font-bold">{selectedDB.name}</h2>
                       <DatabaseContextButton
                         name={selectedDB.name}
-                        hasContext={!!dbContext}
+                        hasContext={!!dbContext?.data}
                       />
                     </div>
-                    {loadedDb === selectedDB.name && (
-                      dbContext ? (
+                    {isLoadingDbContext ? (
+                      <div className="text-gray-400 mt-2">Loading context...</div>
+                    ) : (
+                      dbContext?.data ? (
                         <ContextDisplay
                           type="database"
                           name={selectedDB.name}
-                          {...dbContext}
+                          {...dbContext.data}
                         />
                       ) : (
                         <p className="text-gray-400 mt-2">No context available</p>
