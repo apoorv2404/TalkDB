@@ -13,43 +13,58 @@ export const ContextEditor: React.FC = () => {
     const { state, loading, error, closeEditor, getContext, updateContext } = useContextProvider();
     const [form] = Form.useForm();
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoadingContext, setIsLoadingContext] = useState(false);
 
+    // Effect to fetch context data when editor is opened
     useEffect(() => {
         const fetchContext = async () => {
-            if (state.selectedEntity && state.isEditorOpen) {
-                try {
-                    const params = {
-                        dbName: state.selectedEntity.parentName?.split('.')[0] || state.selectedEntity.name,
-                        tableName: state.selectedEntity.type === 'column' 
-                            ? state.selectedEntity.parentName?.split('.')[1]
-                            : state.selectedEntity.type === 'table' 
-                                ? state.selectedEntity.name 
-                                : undefined,
-                        columnName: state.selectedEntity.type === 'column' ? state.selectedEntity.name : undefined
-                    };
+            if (!state.selectedEntity || !state.isEditorOpen || isLoadingContext) return;
 
-                    const contextData = await getContext(state.selectedEntity.type, params);
-                    if (contextData) {
-                        form.setFieldsValue({
-                            description: contextData.description || '',
-                            businessContext: contextData.businessContext || '',
-                            technicalNotes: contextData.technicalNotes || '',
-                        });
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch context:', err);
+            setIsLoadingContext(true);
+            try {
+                const params = {
+                    dbName: state.selectedEntity.parentName?.split('.')[0] || state.selectedEntity.name,
+                    tableName: state.selectedEntity.type === 'column' 
+                        ? state.selectedEntity.parentName?.split('.')[1]
+                        : state.selectedEntity.type === 'table' 
+                            ? state.selectedEntity.name 
+                            : undefined,
+                    columnName: state.selectedEntity.type === 'column' ? state.selectedEntity.name : undefined
+                };
+
+                const contextData = await getContext(state.selectedEntity.type, params);
+                if (contextData?.data) {
+                    form.setFieldsValue({
+                        description: contextData.data.description || '',
+                        businessContext: contextData.data.businessContext || '',
+                        technicalNotes: contextData.data.technicalNotes || '',
+                    });
                 }
+            } catch (err) {
+                console.error('Failed to fetch context:', err);
+            } finally {
+                setIsLoadingContext(false);
             }
         };
 
-        fetchContext();
-    }, [state.selectedEntity, state.isEditorOpen, getContext, form]);
+        if (state.isEditorOpen && state.selectedEntity) {
+            fetchContext();
+        } else {
+            // Reset form when editor is closed
+            form.resetFields();
+        }
+
+        // Cleanup function
+        return () => {
+            setIsLoadingContext(false);
+        };
+    }, [state.isEditorOpen, state.selectedEntity?.name, state.selectedEntity?.type]); // Reduced dependencies
 
     const handleSave = async () => {
         try {
             const values = await form.validateFields();
             if (!state.selectedEntity) return;
-
+    
             setIsSaving(true);
             const params = {
                 dbName: state.selectedEntity.parentName?.split('.')[0] || state.selectedEntity.name,
@@ -60,8 +75,14 @@ export const ContextEditor: React.FC = () => {
                         : undefined,
                 columnName: state.selectedEntity.type === 'column' ? state.selectedEntity.name : undefined
             };
-
-            await updateContext(state.selectedEntity.type, params, values);
+    
+            // Include the name field in the context data
+            const contextData = {
+                name: state.selectedEntity.name,  // Add this line
+                ...values
+            };
+    
+            await updateContext(state.selectedEntity.type, params, contextData);
             closeEditor();
         } catch (err) {
             console.error('Failed to update context:', err);
@@ -80,8 +101,9 @@ export const ContextEditor: React.FC = () => {
             onCancel={closeEditor}
             confirmLoading={isSaving}
             width={600}
+            maskClosable={false}
         >
-            <Spin spinning={loading}>
+            <Spin spinning={isLoadingContext || loading}>
                 {error && (
                     <Alert
                         message="Error"

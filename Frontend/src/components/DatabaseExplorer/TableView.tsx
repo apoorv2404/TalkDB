@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from 'antd';
 import { TableViewProps } from './types';
 import { TableContextButton, ColumnContextButton } from './context/ContextButton';
@@ -9,13 +9,43 @@ import { useContextProvider } from './context/ContextProvider';
 
 const TableView: React.FC<TableViewProps> = ({ table, onBack, dbName }) => {
   const { getContext } = useContextProvider();
+  const [tableContext, setTableContext] = useState<any>(null);
   const [activeColumnContext, setActiveColumnContext] = useState<{name: string; context: any} | null>(null);
+  const [isLoadingTableContext, setIsLoadingTableContext] = useState(false);
+  const [isLoadingColumnContext, setIsLoadingColumnContext] = useState(false);
+
+  // Load table context when component mounts
+  useEffect(() => {
+    const loadTableContext = async () => {
+      if (isLoadingTableContext) return;
+
+      setIsLoadingTableContext(true);
+      try {
+        const context = await getContext('table', {
+          dbName,
+          tableName: table.name
+        });
+        setTableContext(context);
+      } catch (error) {
+        console.error('Failed to fetch table context:', error);
+        setTableContext(null);
+      } finally {
+        setIsLoadingTableContext(false);
+      }
+    };
+
+    loadTableContext();
+
+    return () => {
+      setIsLoadingTableContext(false);
+    };
+  }, [table.name, dbName, getContext]);
 
   // Load column context only when button is clicked
   const handleColumnContextClick = async (columnName: string) => {
-    // If already loaded for this column, don't reload
-    if (activeColumnContext?.name === columnName) return;
+    if (isLoadingColumnContext || activeColumnContext?.name === columnName) return;
 
+    setIsLoadingColumnContext(true);
     try {
       const context = await getContext('column', {
         dbName,
@@ -26,6 +56,8 @@ const TableView: React.FC<TableViewProps> = ({ table, onBack, dbName }) => {
     } catch (error) {
       console.error(`Failed to fetch context for column ${columnName}:`, error);
       setActiveColumnContext({ name: columnName, context: null });
+    } finally {
+      setIsLoadingColumnContext(false);
     }
   };
 
@@ -44,9 +76,23 @@ const TableView: React.FC<TableViewProps> = ({ table, onBack, dbName }) => {
             <TableContextButton
               name={table.name}
               parentName={dbName}
-              hasContext={false}
+              hasContext={!!tableContext?.data}
             />
           </div>
+          {isLoadingTableContext ? (
+            <div className="text-gray-400 mt-2">Loading table context...</div>
+          ) : (
+            tableContext?.data ? (
+              <ContextDisplay
+                type="table"
+                name={table.name}
+                {...tableContext.data}
+                className="mt-2"
+              />
+            ) : (
+              <p className="text-gray-400 mt-2">No table context available</p>
+            )
+          )}
         </div>
       </div>
 
@@ -97,11 +143,13 @@ const TableView: React.FC<TableViewProps> = ({ table, onBack, dbName }) => {
                   <td className="px-4 py-2 text-sm">
                     <div className="flex items-center gap-2">
                       {isActiveContext && (
-                        columnContext ? (
+                        isLoadingColumnContext ? (
+                          <div className="text-gray-400">Loading...</div>
+                        ) : columnContext?.data ? (
                           <ContextDisplay
                             type="column"
                             name={column.name}
-                            {...columnContext}
+                            {...columnContext.data}
                           />
                         ) : (
                           <span className="text-gray-400">N/A</span>
@@ -110,7 +158,7 @@ const TableView: React.FC<TableViewProps> = ({ table, onBack, dbName }) => {
                       <ColumnContextButton
                         name={column.name}
                         parentName={`${dbName}.${table.name}`}
-                        hasContext={!!columnContext}
+                        hasContext={!!columnContext?.data}
                         onClick={() => handleColumnContextClick(column.name)}
                       />
                     </div>

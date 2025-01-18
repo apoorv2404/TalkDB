@@ -34,6 +34,11 @@ class DatabaseContext(BaseModel):
     last_updated: Optional[datetime] = Field(default_factory=datetime.now)
     updated_by: Optional[str] = None
 
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
 class ContextResponse(BaseModel):
     status: str = "success"
     message: Optional[str] = None

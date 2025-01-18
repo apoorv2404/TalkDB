@@ -140,10 +140,13 @@ async def update_database_context(
         context: Database context information
     """
     try:
+        context_dict = context.dict()
+        if context_dict.get('last_updated'):
+            context_dict['last_updated'] = context_dict['last_updated'].isoformat()
         updated_context = await context_store.store_context(
             entity_type="database",
             entity_name=db_name,
-            context_data=context.dict()
+            context_data=context_dict
         )
         return updated_context
     except Exception as e:
